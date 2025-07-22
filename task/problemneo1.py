@@ -26,9 +26,9 @@ def plot_saving_policy():
                 label=f'{period_labels[iperiod]} / {labels_prod[il]}'
             )
     
-    plt.xlabel('期初資産 $a_t$（利子を除く）')
-    plt.ylabel('次期資産 $a_{t+1}$（利子を除く）')
-    plt.title('各期・各生産性別 貯蓄政策関数の比較')
+    plt.xlabel(' $a_t$')
+    plt.ylabel(' $a_{t+1}$')
+    plt.title('policy function with productivity and term')
     plt.legend(loc='upper left', fontsize='small', ncol=2)
     plt.grid(True)
     plt.xlim(a.min(), a.max())

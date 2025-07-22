@@ -36,7 +36,7 @@ for il in range(NL):
 
 # grids
 a_l = 0.0
-a_u = 2.0
+a_u = 5.0
 NA = 100
 a = np.linspace(a_l, a_u, NA)
 # for (4), set first teerm aseet as 0 

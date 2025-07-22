@@ -1,0 +1,145 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Utility function
+def util(cons, gamma):
+    return np.maximum(cons, 1e-4)**(1.0-gamma)/(1.0-gamma)
+
+# Full model compute function
+def compute_E_Ou_full(a_u, NA):
+    gamma = 2.0
+    beta = 0.985**20
+    r = 1.025**20 - 1.0
+    y = np.array([1.0, 1.2, 0.4])
+    JJ = 3
+    l = np.array([0.8027, 1.0, 1.2457])
+    NL = 3
+    prob = np.array([
+        [0.7451, 0.2528, 0.0021],
+        [0.1360, 0.7281, 0.1361],
+        [0.0021, 0.2528, 0.7451]
+    ])
+    mu_1 = np.ones(NL) / NL
+    mu_2 = np.zeros(NL)
+    for il in range(NL):
+        for ilp in range(NL):
+            mu_2[ilp] += prob[il, ilp] * mu_1[il]
+    tax_vector = 0.3 * l
+    taxrevenue = np.sum(mu_2 * tax_vector)
+    Pension = (1.0 + r) * taxrevenue
+    a = np.linspace(0.0, a_u, NA)
+    v = np.zeros((JJ, NA, NL))
+    iaplus = np.zeros((JJ, NA, NL), dtype=int)
+
+    # Period 3
+    for ia in range(NA):
+        v[2, ia, :] = util(y[2] + (1.0 + r) * a[ia] + Pension, gamma)
+    # Period 2
+    for il in range(NL):
+        for ia in range(NA):
+            rewards = [
+                util(0.7 * l[il] + (1.0 + r) * a[ia] - a[j], gamma) + beta * v[2, j, 0]
+                for j in range(NA)
+            ]
+            i = np.argmax(rewards)
+            v[1, ia, il] = rewards[i]
+            iaplus[1, ia, il] = i
+    # Period 1
+    for il in range(NL):
+        for ia in range(NA):
+            rewards = []
+            for j in range(NA):
+                EV = np.dot(prob[il], v[1, j, :])
+                rewards.append(util(l[il] + (1.0 + r) * a[ia] - a[j], gamma) + beta * EV)
+            i = np.argmax(rewards)
+            v[0, ia, il] = rewards[i]
+            iaplus[0, ia, il] = i
+
+    ia0 = 0
+    Ou = np.zeros(NL)
+    for il in range(NL):
+        # Period 1
+        i1 = iaplus[0, ia0, il]
+        a1 = a[i1]
+        u1 = util(l[il] + (1.0 + r) * a[ia0] - a1, gamma)
+        # Period 2
+        i2 = iaplus[1, i1, il]
+        a2 = a[i2]
+        u2 = util(0.7 * l[il] + (1.0 + r) * a1 - a2, gamma)
+        # Period 3
+        u3 = util(y[2] + (1.0 + r) * a2 + Pension, gamma)
+        Ou[il] = u1 + beta * u2 + beta**2 * u3
+
+    return np.dot(mu_1, Ou)
+
+# Simplified model compute function
+def compute_E_Ou_simple(a_u, NA):
+    gamma = 2.0
+    beta = 0.985**20
+    r = 1.025**20 - 1.0
+    y = np.array([1.0, 1.2, 0.4])
+    JJ = 3
+    l = np.array([0.8027, 1.0, 1.2457])
+    NL = 3
+    prob = np.array([
+        [0.7451, 0.2528, 0.0021],
+        [0.1360, 0.7281, 0.1361],
+        [0.0021, 0.2528, 0.7451]
+    ])
+    mu_1 = np.ones(NL) / NL
+    a = np.linspace(0.0, a_u, NA)
+    v = np.zeros((JJ, NA, NL))
+    iaplus = np.zeros((JJ, NA, NL), dtype=int)
+
+    # Period 3
+    for ia in range(NA):
+        v[2, ia, :] = util(y[2] + (1.0 + r) * a[ia], gamma)
+    # Period 2
+    for il in range(NL):
+        for ia in range(NA):
+            rewards = [
+                util(l[il] + (1.0 + r) * a[ia] - a[j], gamma) + beta * v[2, j, 0]
+                for j in range(NA)
+            ]
+            i = np.argmax(rewards)
+            v[1, ia, il] = rewards[i]
+            iaplus[1, ia, il] = i
+    # Period 1
+    for il in range(NL):
+        for ia in range(NA):
+            rewards = []
+            for j in range(NA):
+                EV = np.dot(prob[il], v[1, j, :])
+                rewards.append(util(l[il] + (1.0 + r) * a[ia] - a[j], gamma) + beta * EV)
+            i = np.argmax(rewards)
+            v[0, ia, il] = rewards[i]
+            iaplus[0, ia, il] = i
+
+    ia0 = 0
+    Ou = np.zeros(NL)
+    for il in range(NL):
+        i1 = iaplus[0, ia0, il]
+        a1 = a[i1]
+        u1 = util(l[il] + (1.0 + r) * a[ia0] - a1, gamma)
+        i2 = iaplus[1, i1, il]
+        a2 = a[i2]
+        u2 = util(l[il] + (1.0 + r) * a1 - a2, gamma)
+        u3 = util(y[2] + (1.0 + r) * a2, gamma)
+        Ou[il] = u1 + beta * u2 + beta**2 * u3
+
+    return np.dot(mu_1, Ou)
+
+# Test grid upper bounds
+a_us = [2, 5, 10,15, 20,25,30]
+E_full = [compute_E_Ou_full(au, NA=300) for au in a_us]
+E_simple = [compute_E_Ou_simple(au, NA=300) for au in a_us]
+
+# Plot both series for comparison
+plt.figure()
+plt.plot(a_us, E_full, marker='o', label='pension model')
+plt.plot(a_us, E_simple, marker='s', label='no pension model')
+plt.xlabel('Grid upper bound $a_u$')
+plt.ylabel('Expected Lifetime Utility $E\\_Ou$')
+plt.title('Comparison of Convergence: pension vs non pension Model')
+plt.legend()
+plt.show()

@@ -26,9 +26,9 @@ def plot_saving_policy():
             label=labels[il]
         )
 
-    plt.xlabel('期初資産 $a_t$')
-    plt.ylabel('次期資産 $a_{t+1}$')
-    plt.title('生産性別 貯蓄（政策）関数')
+    plt.xlabel('first term asset')
+    plt.ylabel('second term asset')
+    plt.title('policy function with productivity')
     plt.legend()
     plt.grid(True)
     plt.xlim(a_l, a_u)

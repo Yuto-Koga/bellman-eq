@@ -1,0 +1,167 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
+
+# Utility function
+def util(c, gamma):
+    return np.maximum(c, 1e-4)**(1.0 - gamma) / (1.0 - gamma)
+
+# Full model with linear interpolation
+def compute_E_Ou_full_interp(a_u, NA):
+    from scipy.interpolate import interp1d
+
+def compute_E_Ou_full_interp(a_u, NA):
+    # パラメータ（省略可）
+    gamma = 2.0
+    beta  = 0.985**20
+    r     = 1.025**20 - 1.0
+    y     = np.array([1.0, 1.2, 0.4])
+    l     = np.array([0.8027, 1.0, 1.2457])
+    prob  = np.array([
+        [0.7451, 0.2528, 0.0021],
+        [0.1360, 0.7281, 0.1361],
+        [0.0021, 0.2528, 0.7451]
+    ])
+    NL    = len(l)
+    mu_1  = np.ones(NL)/NL
+
+    # 年金計算
+    mu_2 = np.zeros(NL)
+    for il in range(NL):
+        for ilp in range(NL):
+            mu_2[ilp] += prob[il, ilp] * mu_1[il]
+    tax_revenue = np.sum(mu_2 * 0.3*l)
+    Pension     = (1.0 + r) * tax_revenue
+
+    # グリッド
+    a = np.linspace(0, a_u, NA)
+    v = np.zeros((3, NA, NL))
+
+    # Period 3：年金を加える
+    for ia in range(NA):
+        v[2, ia, :] = util(y[2] + (1+r)*a[ia] + Pension, gamma)
+    interp_v2 = [interp1d(a, v[2, :, il], kind='linear', fill_value='extrapolate')
+                 for il in range(NL)]
+
+    # Period 2
+    for il in range(NL):
+        for ia in range(NA):
+            cands  = a
+            rewards = util(0.7*l[il] + (1+r)*a[ia] - cands, gamma) \
+                      + beta * interp_v2[0](cands)
+            v[1, ia, il] = np.max(rewards)
+    interp_v1 = [interp1d(a, v[1, :, il], kind='linear', fill_value='extrapolate')
+                 for il in range(NL)]
+
+    # Period 1
+    for il in range(NL):
+        for ia in range(NA):
+            cands = a
+            EV    = np.vstack([interp_v1[ilp](cands) for ilp in range(NL)])
+            rewards = util(l[il] + (1+r)*a[ia] - cands, gamma) \
+                      + beta * (prob[il] @ EV)
+            v[0, ia, il] = np.max(rewards)
+
+    # Ou の計算（u3 にも年金を加える）
+    a0 = 0
+    ia0 = 0
+    Ou = np.zeros(NL)
+    for il in range(NL):
+        # Period 1
+        cands1 = a
+        EV1    = np.vstack([interp_v1[ilp](cands1) for ilp in range(NL)])
+        rewards1 = util(l[il] + (1+r)*a0 - cands1, gamma) \
+                   + beta * (prob[il] @ EV1)
+        i1 = np.argmax(rewards1)
+        a1 = a[i1]; u1 = util(l[il] + (1+r)*a0 - a1, gamma)
+
+        # Period 2
+        cands2  = a
+        rewards2 = util(0.7*l[il] + (1+r)*a1 - cands2, gamma) \
+                   + beta * interp_v2[0](cands2)
+        i2 = np.argmax(rewards2)
+        a2 = a[i2]; u2 = util(0.7*l[il] + (1+r)*a1 - a2, gamma)
+
+        # Period 3：ここにPensionを追加
+        u3 = util(y[2] + (1+r)*a2 + Pension, gamma)
+
+        Ou[il] = u1 + beta*u2 + beta**2 * u3
+
+    return mu_1 @ Ou
+
+
+# Simplified model with linear interpolation
+def compute_E_Ou_simple_interp(a_u, NA):
+    gamma = 2.0
+    beta = 0.985**20
+    r = 1.025**20 - 1.0
+    y = np.array([1.0, 1.2, 0.4])
+    l = np.array([0.8027, 1.0, 1.2457])
+    NL = 3
+    prob = np.array([
+        [0.7451, 0.2528, 0.0021],
+        [0.1360, 0.7281, 0.1361],
+        [0.0021, 0.2528, 0.7451]
+    ])
+    mu_1 = np.ones(NL) / NL
+    a = np.linspace(0, a_u, NA)
+    v = np.zeros((3, NA, NL))
+
+    # period 3
+    for ia in range(NA):
+        v[2, ia, :] = util(y[2] + (1+r)*a[ia], gamma)
+    interp_v2 = [interp1d(a, v[2, :, il], kind='linear', fill_value='extrapolate') for il in range(NL)]
+    
+    # period 2
+    for il in range(NL):
+        for ia in range(NA):
+            cands = a
+            rewards = util(l[il] + (1+r)*a[ia] - cands, gamma) + \
+                      beta * interp_v2[0](cands)
+            v[1, ia, il] = np.max(rewards)
+    interp_v1 = [interp1d(a, v[1, :, il], kind='linear', fill_value='extrapolate') for il in range(NL)]
+    
+    # period 1
+    for il in range(NL):
+        for ia in range(NA):
+            cands = a
+            EV = np.array([interp_v1[ilp](cands) for ilp in range(NL)])
+            rewards = util(l[il] + (1+r)*a[ia] - cands, gamma) + beta * (prob[il] @ EV)
+            v[0, ia, il] = np.max(rewards)
+    
+    # expected utility
+    a0 = 0
+    ia0 = 0
+    Ou = np.zeros(NL)
+    for il in range(NL):
+        cands = a
+        EV1 = np.array([interp_v1[ilp](cands) for ilp in range(NL)])
+        rewards1 = util(l[il] + (1+r)*a0 - cands, gamma) + beta * (prob[il] @ EV1)
+        i1 = np.argmax(rewards1)
+        a1 = a[i1]
+        u1 = util(l[il] + (1+r)*a0 - a1, gamma)
+        
+        cands2 = a
+        rewards2 = util(l[il] + (1+r)*a1 - cands2, gamma) + beta * interp_v2[0](cands2)
+        i2 = np.argmax(rewards2)
+        a2 = a[i2]
+        u2 = util(l[il] + (1+r)*a1 - a2, gamma)
+        
+        u3 = util(y[2] + (1+r)*a2, gamma)
+        Ou[il] = u1 + beta * u2 + beta**2 * u3
+    
+    return mu_1 @ Ou
+
+# Compare convergence
+a_us = [2, 5, 10, 20]
+E_full_interp = [compute_E_Ou_full_interp(au, 100) for au in a_us]
+E_simple_interp = [compute_E_Ou_simple_interp(au, 100) for au in a_us]
+
+plt.figure()
+plt.plot(a_us, E_full_interp, marker='o', label='Pension model (interp)')
+plt.plot(a_us, E_simple_interp, marker='s', label='No pension model (interp)')
+plt.xlabel('Grid upper bound $a_u$')
+plt.ylabel('Expected Lifetime Utility $E_{Ou}$')
+plt.title('Convergence with Linear Interpolation')
+plt.legend()
+plt.show()

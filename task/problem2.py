@@ -36,7 +36,7 @@ for il in range(NL):
 
 # grids
 a_l = 0.0
-a_u = 2.0
+a_u = 3
 NA = 100
 a = np.linspace(a_l, a_u, NA)
 
@@ -82,13 +82,27 @@ for il in range(NL):
         aplus[0, ia, il] = a[iaplus[0, ia, il]]
         v[0, ia, il] = reward[iaplus[0, ia, il]]
 
+# t=2 → t=3 の政策関数を例に
+np.any(aplus[1,:,:] == a_u)
+
+# t=2→t=3 の政策関数がグリッド上限 a_u に張り付いているかどうか
+mask = (aplus[1, :, :] == a_u)
+
+# ブール値を表示
+print("張り付きあり？", np.any(mask))       # いずれか True があれば True
+print("状態ごとのマスク：\n", mask)         # 各 (資産, 状態) ごとに True/False
+
+# もしどこが張り付いているか知りたければ
+idx = np.column_stack(np.where(mask))
+print("張り付いているインデックス (ia, state)：\n", idx)
+
 plt.figure()
 plt.plot(a, aplus[0, :, 0], marker='o', label='Low')
 plt.plot(a, aplus[0, :, 1], marker='s', label='Mid')
 plt.plot(a, aplus[0, :, 2], marker='^', label='High')
 plt.title("policy function")
-plt.xlabel("a_1")
-plt.ylabel("a_2")
+plt.xlabel("first term asset")
+plt.ylabel("second term asset")
 plt.ylim(a_l, a_u)
 plt.grid(True)
 plt.legend()
@@ -99,8 +113,8 @@ plt.plot(a, aplus[1, :, 0], marker='o', label='Low')
 plt.plot(a, aplus[1, :, 1], marker='s', label='Mid')
 plt.plot(a, aplus[1, :, 2], marker='^', label='High')
 plt.title("policy function")
-plt.xlabel("a_2")
-plt.ylabel("a_3")
+plt.xlabel("second term asset")
+plt.ylabel("third term asset")
 plt.ylim(a_l, a_u)
 plt.grid(True)
 plt.legend()

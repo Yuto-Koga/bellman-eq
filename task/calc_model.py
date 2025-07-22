@@ -29,7 +29,7 @@ def solve_three_period_model(
         [0.0021, 0.2528, 0.7451]
     ]),
     a_l=0.0,
-    a_u=2.0,
+    a_u=3.0,
     NA=100
 ):
     """
