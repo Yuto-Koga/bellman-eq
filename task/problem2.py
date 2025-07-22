@@ -50,6 +50,7 @@ aplus = np.zeros((JJ, NA, NL))
 tax_vector = 0.3*l
 taxrevenue = np.sum(mu_2*tax_vector)
 Pension = (1.0+r)*taxrevenue 
+print(f"Pension (一人当たりの年金額) = {taxrevenue:.4f}")
 print(f"Pension (一人当たりの年金額) = {Pension:.4f}")
 # period 3
 for ia in range(NA):
